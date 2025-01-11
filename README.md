@@ -18,3 +18,7 @@ Setup Flannel CNI without Kubernetes
 ### 1.2. Install ETCD
 
 ### 1.3. Install Flannel
+
+## 2. TODO
+
+- [ ] Test flannel is work on multi node environment.
