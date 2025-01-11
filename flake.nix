@@ -14,6 +14,7 @@
           nativeBuildInputs = with pkgs; [
             marksman             # Markdown LSP
             bash-language-server # Bash Shell LSP
+            yaml-language-server # YAML LSP
             ansible              # Ansible for Automation
           ];
         };
