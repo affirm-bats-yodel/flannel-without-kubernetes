@@ -1,0 +1,88 @@
+---
+- name: "download and install cni plugins"
+  hosts: "localhost"
+  gather_facts: true
+  vars:
+    supported_platforms:
+      - amd64
+      - arm64
+      # below architectures are supported on cni-plugins
+      # however it does not support on this playbook
+      # - arm
+      # - mips64le
+      # - ppc64le
+      # - riscv64
+      # - s390x
+  tasks:
+    # NOTE(affirm-bats-yodel): CNI Plugin Supports Windows Operating system, but
+    # playbook couldn't, will be update in the future when
+    # needed.
+    - name: should've fail when operating system is not a Linux
+      fail:
+        msg: Playbook is Designed for Linux Distribution
+      when: ansible_system != "Linux"
+    - name: check /opt/cni/bin already exist
+      stat:
+        path: "/opt/cni/bin"
+      register: cnibin_stat
+    - name: fail when /opt/cni/bin already exist
+      fail:
+        msg: "/opt/cni/bin directory is already exist"
+      when: cnibin_stat.stat.isdir is defined
+    # TODO(affirm-bats-yodel): should've deal with non amd64, arm64 architecture
+    # is detected.
+    - name: set architecture
+      set_fact:
+        arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
+    - name: fail when architecture is unmet
+      fail:
+        msg: "architecture: {{ ansible_architecture }} ({{ arch }}) does not supported on playbook"
+      when: arch is not in supported_platforms
+    - set_fact: plugins_version="v1.6.2"
+      when: plugins_version is undefined
+    - name: generate download url
+      set_fact:
+        tgz_filename: "cni-plugins-linux-{{arch}}-{{plugins_version}}.tgz"
+        download_url: "https://github.com/containernetworking/plugins/releases/download/{{plugins_version}}/cni-plugins-linux-{{arch}}-{{plugins_version}}.tgz"
+        download_sha_url: "https://github.com/containernetworking/plugins/releases/download/{{plugins_version}}/cni-plugins-linux-{{arch}}-{{plugins_version}}.tgz.sha256"
+    - debug:
+        msg: "download plugin: {{ plugins_version }} with {{ ansible_system }}/{{ arch }} at {{download_url}}"
+    # check file is exist before download
+    - name: "check tgz file exist" # github supports HEAD Requests
+      uri:
+        url: "{{download_url}}"
+        method: "HEAD"
+        status_code: 200
+    - name: "check tgz.sha256 file exist"
+      uri:
+        url: "{{download_sha_url}}"
+        method: "HEAD"
+        status_code: 200
+    # TODO(affirm-bats-yodel): do I need to remove existing file?
+    # TODO(affirm-bats-yodel): split tasks when archive file exist and hashes are met, don't download twice
+    - name: download tgz file
+      get_url:
+        url: "{{download_url}}"
+        dest: "/tmp"
+    - name: download tgz.sha256 file
+      get_url:
+        url: "{{download_sha_url}}"
+        dest: "/tmp"
+    - name: verify sha256 checksum via sha256sum
+      command:
+        cmd: "sha256sum --check --quiet {{tgz_filename}}.sha256"
+        chdir: /tmp
+      register: sha256sum_result
+    - fail:
+        msg: "downloaded file is corrupted: {{tgz_filename}}"
+      when: sha256sum_result.rc != 0
+    - name: mkdir -p /opt/cni/bin
+      file:
+        path: /opt/cni/bin
+        state: directory
+      become: true
+    - name: unarchive tgz file to /opt/cni/bin
+      unarchive:
+        src: "/tmp/{{tgz_filename}}"
+        dest: "/opt/cni/bin"
+      become: true
