@@ -6,7 +6,7 @@ Setup Flannel CNI without Kubernetes
 
 ### 1.1. CNI (Container Network Interface) Plugins
 
-> [!INFO]
+> [!NOTE]
 >
 > You can execute an ansible playbook using: [./playbooks/download-cni-plugins/playbook.yml](./playbooks/download-cni-plugins/playbook.yml)
 
